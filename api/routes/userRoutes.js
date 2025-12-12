@@ -19,6 +19,44 @@ const router = express.Router();
 // All routes require authentication
 router.use(protect);
 
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   get:
+ *     summary: Get user profile by ID
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *                     profile:
+ *                       $ref: '#/components/schemas/Profile'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 // @route   GET /api/users/:id
 router.get(
   "/:id",
@@ -27,6 +65,57 @@ router.get(
   getUser
 );
 
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   patch:
+ *     summary: Update user profile
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: John Doe
+ *               timezone:
+ *                 type: string
+ *                 enum: [Africa/Lagos, Africa/Accra, Africa/Nairobi]
+ *               currency:
+ *                 type: string
+ *                 enum: [NGN, GHS, USD, KES, ZAR, EGP]
+ *               bio:
+ *                 type: string
+ *                 maxLength: 500
+ *               company:
+ *                 type: string
+ *                 maxLength: 100
+ *               website:
+ *                 type: string
+ *                 format: uri
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 // @route   PATCH /api/users/:id
 router.patch(
   "/:id",

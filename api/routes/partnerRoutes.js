@@ -16,7 +16,7 @@ import {
 } from "../controllers/assignmentController.js";
 import { protect } from "../middleware/auth.js";
 import { apiLimiter, publicLimiter } from "../middleware/rateLimiter.js";
-import { body, query } from "express-validator";
+import { body, query, param } from "express-validator";
 import {
   validateRequest,
   validationRules,
@@ -25,6 +25,55 @@ import {
 const router = express.Router();
 
 // Partner profile routes
+/**
+ * @swagger
+ * /api/partners:
+ *   post:
+ *     summary: Create partner profile
+ *     tags: [Partners]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - services
+ *               - pricing
+ *             properties:
+ *               services:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [design, marketing, development, content, consulting]
+ *                 example: [design, marketing]
+ *               pricing:
+ *                 type: object
+ *                 properties:
+ *                   hourlyRate:
+ *                     type: number
+ *                   projectRate:
+ *                     type: number
+ *                   currency:
+ *                     type: string
+ *                     enum: [NGN, GHS, USD, KES, ZAR, EGP]
+ *     responses:
+ *       201:
+ *         description: Partner profile created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Partner'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 router.post(
   "/",
   protect,
@@ -60,7 +109,7 @@ router.get("/", publicLimiter, getPartners);
 router.get(
   "/:id",
   publicLimiter,
-  validationRules.mongoId("id"),
+  [param("id").custom(validationRules.mongoId.isMongoId)],
   validateRequest,
   getPartner
 );
@@ -69,7 +118,7 @@ router.patch(
   "/:id",
   protect,
   apiLimiter,
-  validationRules.mongoId("id"),
+  [param("id").custom(validationRules.mongoId.isMongoId)],
   validateRequest,
   updatePartner
 );
@@ -79,7 +128,7 @@ router.post(
   protect,
   apiLimiter,
   [
-    validationRules.mongoId("id"),
+    param("id").custom(validationRules.mongoId.isMongoId),
     body("rating")
       .isInt({ min: 1, max: 5 })
       .withMessage("Rating must be between 1 and 5"),
@@ -97,7 +146,7 @@ router.delete(
   "/:id",
   protect,
   apiLimiter,
-  validationRules.mongoId("id"),
+  [param("id").custom(validationRules.mongoId.isMongoId)],
   validateRequest,
   deletePartner
 );
@@ -108,8 +157,8 @@ router.post(
   protect,
   apiLimiter,
   [
-    validationRules.mongoId("partnerId"),
-    body("launchId").custom(validationRules.mongoId("launchId").validator),
+    param("partnerId").custom(validationRules.mongoId.isMongoId),
+    body("launchId").custom(validationRules.mongoId.isMongoId),
     body("service")
       .isIn(["design", "marketing", "development", "content", "consulting"])
       .withMessage("Invalid service type"),
@@ -131,7 +180,7 @@ router.patch(
   protect,
   apiLimiter,
   [
-    validationRules.mongoId("id"),
+    param("id").custom(validationRules.mongoId.isMongoId),
     body("status")
       .isIn(["pending", "accepted", "in-progress", "completed", "cancelled"])
       .withMessage("Invalid status"),
@@ -145,7 +194,7 @@ router.post(
   protect,
   apiLimiter,
   [
-    validationRules.mongoId("id"),
+    param("id").custom(validationRules.mongoId.isMongoId),
     body("message")
       .isString()
       .trim()
@@ -161,7 +210,7 @@ router.post(
   protect,
   apiLimiter,
   [
-    validationRules.mongoId("id"),
+    param("id").custom(validationRules.mongoId.isMongoId),
     body("rating")
       .isInt({ min: 1, max: 5 })
       .withMessage("Rating must be between 1 and 5"),

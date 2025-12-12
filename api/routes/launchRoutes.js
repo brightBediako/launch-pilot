@@ -21,6 +21,81 @@ const router = express.Router();
 // All routes require authentication
 router.use(protect);
 
+/**
+ * @swagger
+ * /api/launches:
+ *   post:
+ *     summary: Create a new launch
+ *     tags: [Launches]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - description
+ *               - productType
+ *               - targetDate
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 100
+ *                 example: EcoTech Mobile App Launch
+ *               description:
+ *                 type: string
+ *                 minLength: 10
+ *                 maxLength: 2000
+ *                 example: Revolutionary eco-friendly mobile app for Nigerian market
+ *               productType:
+ *                 type: string
+ *                 enum: [saas, mobile-app, web-app, physical-product, service, other]
+ *                 example: mobile-app
+ *               targetDate:
+ *                 type: string
+ *                 format: date-time
+ *                 example: 2025-03-15T00:00:00Z
+ *               markets:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [Nigeria, Ghana, Kenya, South Africa, Egypt]
+ *                 example: [Nigeria, Ghana]
+ *               budget:
+ *                 type: object
+ *                 properties:
+ *                   amount:
+ *                     type: number
+ *                     example: 5000
+ *                   currency:
+ *                     type: string
+ *                     enum: [NGN, GHS, USD, KES, ZAR, EGP]
+ *                     example: NGN
+ *     responses:
+ *       201:
+ *         description: Launch created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Launch created successfully
+ *                 data:
+ *                   $ref: '#/components/schemas/Launch'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 // @route   POST /api/launches
 router.post(
   "/",
@@ -70,6 +145,63 @@ router.post(
   createLaunch
 );
 
+/**
+ * @swagger
+ * /api/launches:
+ *   get:
+ *     summary: Get all launches for current user
+ *     tags: [Launches]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [draft, planning, active, completed, cancelled]
+ *         description: Filter by launch status
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Items per page
+ *     responses:
+ *       200:
+ *         description: Launches retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     launches:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Launch'
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                         page:
+ *                           type: integer
+ *                         pages:
+ *                           type: integer
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 // @route   GET /api/launches
 router.get(
   "/",
@@ -96,6 +228,39 @@ router.get(
   getLaunches
 );
 
+/**
+ * @swagger
+ * /api/launches/{id}:
+ *   get:
+ *     summary: Get a single launch by ID
+ *     tags: [Launches]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Launch ID
+ *     responses:
+ *       200:
+ *         description: Launch retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Launch'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 // @route   GET /api/launches/:id
 router.get(
   "/:id",
@@ -139,6 +304,50 @@ router.delete(
   deleteLaunch
 );
 
+/**
+ * @swagger
+ * /api/launches/{id}/generate-plan:
+ *   post:
+ *     summary: Generate AI-powered launch plan
+ *     tags: [Launches]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Launch ID
+ *     responses:
+ *       200:
+ *         description: Launch plan generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Launch plan generated successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     plan:
+ *                       $ref: '#/components/schemas/LaunchPlan'
+ *                     aiProvider:
+ *                       type: string
+ *                       enum: [gemini, openai, template]
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       429:
+ *         description: AI rate limit exceeded
+ */
 // @route   POST /api/launches/:id/generate-plan
 router.post(
   "/:id/generate-plan",

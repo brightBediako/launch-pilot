@@ -11,7 +11,7 @@ import {
 } from "../controllers/launchPageController.js";
 import { protect } from "../middleware/auth.js";
 import { apiLimiter, publicLimiter } from "../middleware/rateLimiter.js";
-import { body } from "express-validator";
+import { body, param } from "express-validator";
 import {
   validateRequest,
   validationRules,
@@ -19,12 +19,52 @@ import {
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/launch-pages:
+ *   post:
+ *     summary: Create a new launch page
+ *     tags: [Launch Pages]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - launchId
+ *             properties:
+ *               launchId:
+ *                 type: string
+ *               customUrl:
+ *                 type: string
+ *                 pattern: ^[a-z0-9-]+$
+ *                 minLength: 3
+ *                 maxLength: 50
+ *                 example: ecotech-app-launch
+ *     responses:
+ *       201:
+ *         description: Launch page created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/LaunchPage'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 router.post(
   "/",
   protect,
   apiLimiter,
   [
-    body("launchId").custom(validationRules.mongoId("launchId").validator),
+    body("launchId").custom(validationRules.mongoId.isMongoId),
     body("customUrl")
       .optional()
       .isString()
@@ -39,6 +79,35 @@ router.post(
   createLaunchPage
 );
 
+/**
+ * @swagger
+ * /api/launch-pages/{slug}:
+ *   get:
+ *     summary: Get launch page by slug (public)
+ *     tags: [Launch Pages]
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Launch page slug
+ *         example: ecotech-app-launch
+ *     responses:
+ *       200:
+ *         description: Launch page retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/LaunchPage'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ */
 // Public route - get by slug
 router.get("/:slug", publicLimiter, getLaunchPageBySlug);
 
@@ -47,7 +116,7 @@ router.get(
   "/id/:id",
   protect,
   apiLimiter,
-  validationRules.mongoId("id"),
+  [param("id").custom(validationRules.mongoId.isMongoId)],
   validateRequest,
   getLaunchPage
 );
@@ -56,7 +125,7 @@ router.patch(
   "/:id",
   protect,
   apiLimiter,
-  validationRules.mongoId("id"),
+  [param("id").custom(validationRules.mongoId.isMongoId)],
   validateRequest,
   updateLaunchPage
 );
@@ -65,7 +134,7 @@ router.post(
   "/:id/publish",
   protect,
   apiLimiter,
-  validationRules.mongoId("id"),
+  [param("id").custom(validationRules.mongoId.isMongoId)],
   validateRequest,
   publishLaunchPage
 );
@@ -91,7 +160,7 @@ router.get(
   "/:id/subscribers",
   protect,
   apiLimiter,
-  validationRules.mongoId("id"),
+  [param("id").custom(validationRules.mongoId.isMongoId)],
   validateRequest,
   getSubscribers
 );
@@ -100,7 +169,7 @@ router.post(
   "/:id/notify",
   protect,
   apiLimiter,
-  validationRules.mongoId("id"),
+  [param("id").custom(validationRules.mongoId.isMongoId)],
   validateRequest,
   notifyAllSubscribers
 );

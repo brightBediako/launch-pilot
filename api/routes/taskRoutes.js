@@ -10,7 +10,7 @@ import {
 } from "../controllers/taskController.js";
 import { protect } from "../middleware/auth.js";
 import { apiLimiter } from "../middleware/rateLimiter.js";
-import { body, query } from "express-validator";
+import { body, query, param } from "express-validator";
 import {
   validateRequest,
   validationRules,
@@ -18,12 +18,59 @@ import {
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/tasks:
+ *   post:
+ *     summary: Create a new task
+ *     tags: [Tasks]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - launchId
+ *               - title
+ *             properties:
+ *               launchId:
+ *                 type: string
+ *               title:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 200
+ *                 example: Design launch banner
+ *               description:
+ *                 type: string
+ *                 maxLength: 1000
+ *               priority:
+ *                 type: string
+ *                 enum: [low, medium, high]
+ *                 example: high
+ *     responses:
+ *       201:
+ *         description: Task created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Task'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 router.post(
   "/",
   protect,
   apiLimiter,
   [
-    body("launchId").custom(validationRules.mongoId("launchId").validator),
+    body("launchId").custom(validationRules.mongoId.isMongoId),
     body("title")
       .isString()
       .trim()
@@ -59,7 +106,7 @@ router.get(
   "/:id",
   protect,
   apiLimiter,
-  validationRules.mongoId("id"),
+  [param("id").custom(validationRules.mongoId.isMongoId)],
   validateRequest,
   getTask
 );
@@ -69,7 +116,7 @@ router.patch(
   protect,
   apiLimiter,
   [
-    validationRules.mongoId("id"),
+    param("id").custom(validationRules.mongoId.isMongoId),
     body("status")
       .optional()
       .isIn(["todo", "in-progress", "review", "done"])
@@ -87,7 +134,7 @@ router.delete(
   "/:id",
   protect,
   apiLimiter,
-  validationRules.mongoId("id"),
+  [param("id").custom(validationRules.mongoId.isMongoId)],
   validateRequest,
   deleteTask
 );
@@ -97,7 +144,7 @@ router.patch(
   protect,
   apiLimiter,
   [
-    validationRules.mongoId("id"),
+    param("id").custom(validationRules.mongoId.isMongoId),
     body("position")
       .isInt({ min: 0 })
       .withMessage("Position must be a non-negative integer"),
@@ -111,7 +158,7 @@ router.post(
   protect,
   apiLimiter,
   [
-    validationRules.mongoId("id"),
+    param("id").custom(validationRules.mongoId.isMongoId),
     body("text")
       .isString()
       .trim()
