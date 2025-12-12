@@ -1,6 +1,5 @@
 import http from "http";
 import app from "./app/app.js";
-import { initPaymentReminderScheduler } from "./services/paymentReminderScheduler.js";
 
 //creating server
 const PORT = process.env.PORT || 8000;
