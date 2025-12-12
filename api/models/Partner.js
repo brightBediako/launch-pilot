@@ -7,7 +7,6 @@ const partnerSchema = new mongoose.Schema(
       ref: "User",
       required: true,
       unique: true,
-      index: true,
     },
     services: [
       {
@@ -50,7 +49,6 @@ const partnerSchema = new mongoose.Schema(
         type: String,
         enum: ["NG", "GH", "KE", "ZA", "EG", "other"],
         required: true,
-        index: true,
       },
       city: {
         type: String,

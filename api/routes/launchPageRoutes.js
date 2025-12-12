@@ -144,7 +144,10 @@ router.post(
   "/:slug/subscribe",
   publicLimiter,
   [
-    validationRules.email,
+    body("email")
+      .isEmail()
+      .withMessage("Please provide a valid email address")
+      .normalizeEmail(),
     body("name")
       .optional()
       .isString()

@@ -6,7 +6,6 @@ const launchSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
     title: {
       type: String,
@@ -47,7 +46,6 @@ const launchSchema = new mongoose.Schema(
       type: String,
       enum: ["draft", "planning", "active", "completed", "cancelled"],
       default: "draft",
-      index: true,
     },
     markets: [
       {

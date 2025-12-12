@@ -92,7 +92,7 @@ const profileSchema = new mongoose.Schema(
 );
 
 // Index for faster queries
-profileSchema.index({ userId: 1 });
+// Note: userId index is automatically created by unique: true
 
 const Profile = mongoose.model("Profile", profileSchema);
 

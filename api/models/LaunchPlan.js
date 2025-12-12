@@ -7,7 +7,6 @@ const launchPlanSchema = new mongoose.Schema(
       ref: "Launch",
       required: true,
       unique: true,
-      index: true,
     },
     phases: [
       {
