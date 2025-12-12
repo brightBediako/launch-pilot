@@ -20,6 +20,12 @@ const storage = new CloudinaryStorage({
   allowedFormats: ["jpg", "jpeg", "png"],
   params: {
     folder: "launch-pilot", // Folder name in Cloudinary
+    transformation: [
+      {
+        quality: "auto",
+        fetch_format: "auto",
+      },
+    ],
   },
 });
 

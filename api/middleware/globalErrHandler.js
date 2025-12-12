@@ -1,19 +1,23 @@
-export const globalErrhandler = (err, req, res, next) => {
-  //stack
-  //message
-  console.error("=== GLOBAL ERROR HANDLER ===");
-  console.error("Error:", err);
-  console.error("Error name:", err?.name);
-  console.error("Error message:", err?.message);
-  console.error("Error stack:", err?.stack);
+import logger from "../utils/logger.js";
 
-  const stack = err?.stack;
-  const statusCode = err?.statusCode ? err?.statusCode : 500;
-  const message = err?.message;
-  res.status(statusCode).json({
-    stack,
+export const globalErrhandler = (err, req, res, next) => {
+  // Log the error
+  logger.error(`Error: ${err.message}\nStack: ${err.stack}`);
+
+  const statusCode = err?.statusCode || 500;
+  const message = err?.message || "Internal server error";
+
+  const response = {
+    success: false,
     message,
-  });
+  };
+
+  // Only include stack trace in development
+  if (process.env.NODE_ENV !== "production") {
+    response.stack = err?.stack;
+  }
+
+  res.status(statusCode).json(response);
 };
 
 //404 handler
