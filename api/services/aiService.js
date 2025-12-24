@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import { ruleBasedPlanner } from "./ruleBasedPlanner.js";
+import logger from "../utils/logger.js";
+import { ExternalServiceError } from "../utils/errors.js";
 
 // Initialize AI clients
 const genAI = process.env.GOOGLE_GEMINI_API_KEY
@@ -36,50 +38,107 @@ export const generateLaunchPlan = async (launchData, userContext = {}) => {
     }
 
     // If both AI providers fail, use rule-based fallback
-    console.warn("No AI providers available, using rule-based planner");
+    logger.warn("No AI providers available, using rule-based planner");
     return ruleBasedPlanner(launchData, userContext);
   } catch (error) {
-    console.error("AI generation error:", error.message);
+    logger.error(`AI generation error: ${error.message}`);
 
     // Try alternative provider
     try {
       if (primaryProvider === "gemini" && openai) {
-        console.log("Gemini failed, trying OpenAI...");
+        logger.info("Gemini failed, trying OpenAI...");
         return await generateWithOpenAI(launchData, userContext);
       } else if (primaryProvider === "openai" && genAI) {
-        console.log("OpenAI failed, trying Gemini...");
+        logger.info("OpenAI failed, trying Gemini...");
         return await generateWithGemini(launchData, userContext);
       }
     } catch (fallbackError) {
-      console.error("Fallback AI provider also failed:", fallbackError.message);
+      logger.error(`Fallback AI provider also failed: ${fallbackError.message}`);
     }
 
     // Final fallback to rule-based planner
-    console.warn("All AI providers failed, using rule-based planner");
+    logger.warn("All AI providers failed, using rule-based planner");
     return ruleBasedPlanner(launchData, userContext);
   }
 };
+
+/**
+ * Create a promise with timeout
+ * @param {Promise} promise - Promise to wrap
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @param {string} errorMessage - Error message if timeout
+ * @returns {Promise}
+ */
+function withTimeout(promise, timeoutMs, errorMessage) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    ),
+  ]);
+}
+
+/**
+ * Retry a function with exponential backoff
+ * @param {Function} fn - Function to retry
+ * @param {number} maxRetries - Maximum number of retries
+ * @param {number} initialDelay - Initial delay in ms
+ * @returns {Promise}
+ */
+async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 1000) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxRetries) {
+        const delay = initialDelay * Math.pow(2, attempt);
+        logger.warn(
+          `AI request failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
 
 /**
  * Generate launch plan using Google Gemini
  */
 async function generateWithGemini(launchData, userContext) {
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
   const prompt = buildLaunchPlanPrompt(launchData, userContext);
+  const timeoutMs = parseInt(process.env.AI_TIMEOUT_MS) || 30000; // 30 seconds default
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = response.text();
+  try {
+    const result = await retryWithBackoff(
+      () =>
+        withTimeout(
+          model.generateContent(prompt),
+          timeoutMs,
+          "Gemini API request timed out"
+        ),
+      2, // 2 retries
+      1000 // 1 second initial delay
+    );
 
-  // Parse JSON from response
-  const parsed = parseAIResponse(text);
+    const response = await result.response;
+    const text = response.text();
 
-  return {
-    ...parsed,
-    aiProvider: "gemini",
-    generatedAt: new Date(),
-  };
+    // Parse JSON from response
+    const parsed = parseAIResponse(text);
+
+    return {
+      ...parsed,
+      aiProvider: "gemini",
+      generatedAt: new Date(),
+    };
+  } catch (error) {
+    logger.error(`Gemini generation failed: ${error.message}`);
+    throw new ExternalServiceError("Gemini", error.message);
+  }
 }
 
 /**
@@ -87,32 +146,47 @@ async function generateWithGemini(launchData, userContext) {
  */
 async function generateWithOpenAI(launchData, userContext) {
   const prompt = buildLaunchPlanPrompt(launchData, userContext);
+  const timeoutMs = parseInt(process.env.AI_TIMEOUT_MS) || 30000; // 30 seconds default
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-3.5-turbo",
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are an expert product launch strategist specializing in African markets, particularly Nigeria and Ghana. Provide practical, market-specific launch plans in JSON format.",
-      },
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
-    temperature: 0.7,
-    response_format: { type: "json_object" },
-  });
+  try {
+    const completion = await retryWithBackoff(
+      () =>
+        withTimeout(
+          openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are an expert product launch strategist specializing in African markets, particularly Nigeria and Ghana. Provide practical, market-specific launch plans in JSON format.",
+              },
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            temperature: 0.7,
+            response_format: { type: "json_object" },
+          }),
+          timeoutMs,
+          "OpenAI API request timed out"
+        ),
+      2, // 2 retries
+      1000 // 1 second initial delay
+    );
 
-  const text = completion.choices[0].message.content;
-  const parsed = parseAIResponse(text);
+    const text = completion.choices[0].message.content;
+    const parsed = parseAIResponse(text);
 
-  return {
-    ...parsed,
-    aiProvider: "openai",
-    generatedAt: new Date(),
-  };
+    return {
+      ...parsed,
+      aiProvider: "openai",
+      generatedAt: new Date(),
+    };
+  } catch (error) {
+    logger.error(`OpenAI generation failed: ${error.message}`);
+    throw new ExternalServiceError("OpenAI", error.message);
+  }
 }
 
 /**
@@ -198,7 +272,7 @@ function parseAIResponse(text) {
     // If no JSON found, try parsing entire response
     return JSON.parse(text);
   } catch (error) {
-    console.error("Failed to parse AI response:", error.message);
+    logger.error(`Failed to parse AI response: ${error.message}`);
     throw new Error("Invalid AI response format");
   }
 }
@@ -250,9 +324,8 @@ export const generatePlatformContent = async (
 
     throw new Error("No AI provider available");
   } catch (error) {
-    console.error(
-      `Platform content generation error for ${platform}:`,
-      error.message
+    logger.error(
+      `Platform content generation error for ${platform}: ${error.message}`
     );
     throw error;
   }

@@ -1,6 +1,9 @@
 import Launch from "../models/Launch.js";
 import LaunchPlan from "../models/LaunchPlan.js";
-import { generateLaunchPlan } from "../services/aiService.js";
+import mongoose from "mongoose";
+import { generateAndSavePlan } from "../services/planService.js";
+import { NotFoundError, AuthorizationError } from "../utils/errors.js";
+import { isOwner, isAdmin } from "../middleware/authorization.js";
 
 // @desc    Create new launch
 // @route   POST /api/launches
@@ -91,28 +94,20 @@ export const getLaunches = async (req, res, next) => {
 // @access  Private
 export const getLaunch = async (req, res, next) => {
   try {
-    const launch = await Launch.findById(req.params.id);
+    // Optimize: Fetch launch and plan in parallel to avoid N+1 query
+    const [launch, plan] = await Promise.all([
+      Launch.findById(req.params.id),
+      LaunchPlan.findOne({ launchId: req.params.id }),
+    ]);
 
     if (!launch) {
-      return res.status(404).json({
-        success: false,
-        message: "Launch not found",
-      });
+      throw new NotFoundError("Launch");
     }
 
     // Check ownership or admin
-    if (
-      launch.userId.toString() !== req.user._id.toString() &&
-      req.user.role !== "admin"
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to access this launch",
-      });
+    if (!isOwner(launch, req.user) && !isAdmin(req.user)) {
+      throw new AuthorizationError("Not authorized to access this launch");
     }
-
-    // Get associated plan if exists
-    const plan = await LaunchPlan.findOne({ launchId: launch._id });
 
     res.json({
       success: true,
@@ -134,21 +129,12 @@ export const updateLaunch = async (req, res, next) => {
     const launch = await Launch.findById(req.params.id);
 
     if (!launch) {
-      return res.status(404).json({
-        success: false,
-        message: "Launch not found",
-      });
+      throw new NotFoundError("Launch");
     }
 
     // Check ownership
-    if (
-      launch.userId.toString() !== req.user._id.toString() &&
-      req.user.role !== "admin"
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to update this launch",
-      });
+    if (!isOwner(launch, req.user) && !isAdmin(req.user)) {
+      throw new AuthorizationError("Not authorized to update this launch");
     }
 
     const updatedLaunch = await Launch.findByIdAndUpdate(
@@ -175,27 +161,28 @@ export const deleteLaunch = async (req, res, next) => {
     const launch = await Launch.findById(req.params.id);
 
     if (!launch) {
-      return res.status(404).json({
-        success: false,
-        message: "Launch not found",
-      });
+      throw new NotFoundError("Launch");
     }
 
     // Check ownership
-    if (
-      launch.userId.toString() !== req.user._id.toString() &&
-      req.user.role !== "admin"
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to delete this launch",
-      });
+    if (!isOwner(launch, req.user) && !isAdmin(req.user)) {
+      throw new AuthorizationError("Not authorized to delete this launch");
     }
 
-    // Delete associated plan
-    await LaunchPlan.findOneAndDelete({ launchId: launch._id });
-
-    await launch.deleteOne();
+    // Use transaction for launch and plan deletion
+    const session = await mongoose.startSession();
+    
+    try {
+      await session.withTransaction(async () => {
+        // Delete associated plan and launch in transaction
+        await Promise.all([
+          LaunchPlan.findOneAndDelete({ launchId: launch._id }).session(session),
+          Launch.findByIdAndDelete(req.params.id).session(session),
+        ]);
+      });
+    } finally {
+      await session.endSession();
+    }
 
     res.json({
       success: true,
@@ -214,97 +201,27 @@ export const generatePlan = async (req, res, next) => {
     const launch = await Launch.findById(req.params.id);
 
     if (!launch) {
-      return res.status(404).json({
-        success: false,
-        message: "Launch not found",
-      });
+      throw new NotFoundError("Launch");
     }
 
     // Check ownership
-    if (launch.userId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to generate plan for this launch",
-      });
+    if (!isOwner(launch, req.user)) {
+      throw new AuthorizationError("Not authorized to generate plan for this launch");
     }
 
-    // Generate plan using AI
+    // Generate plan using shared service
     const userContext = {
       timezone: req.user.timezone,
       currency: req.user.currency,
       markets: launch.markets,
     };
 
-    const generatedPlan = await generateLaunchPlan(
-      {
-        title: launch.title,
-        description: launch.description,
-        productType: launch.productType,
-        targetDate: launch.targetDate,
-        markets: launch.markets,
-        budget: launch.budget,
-      },
-      userContext
-    );
-
-    // Update launch with AI config
-    launch.plan = {
-      strategy: generatedPlan.strategy,
-      timeline: generatedPlan.timeline,
-      tactics: generatedPlan.tactics,
-    };
-    launch.generatedBy = "ai";
-    launch.aiConfig = {
-      provider: generatedPlan.aiProvider,
-      model:
-        generatedPlan.aiProvider === "gemini" ? "gemini-pro" : "gpt-3.5-turbo",
-      temperature: 0.7,
-      iterations: 1,
-    };
-    await launch.save();
-
-    // Create or update launch plan
-    const planData = {
-      launchId: launch._id,
-      phases: generatedPlan.timeline.map((phase) => ({
-        name: phase.phase,
-        duration: Math.ceil(
-          (new Date(phase.endDate) - new Date(phase.startDate)) /
-            (1000 * 60 * 60 * 24)
-        ),
-        startDate: phase.startDate,
-        endDate: phase.endDate,
-        tasks: phase.tasks.map((task) => ({
-          title: task,
-          priority: "medium",
-          status: "pending",
-        })),
-      })),
-      recommendations: {
-        channels: [],
-      },
-      milestones: generatedPlan.milestones
-        ? generatedPlan.milestones.map((m) => ({
-            title: m,
-            completed: false,
-          }))
-        : [],
-    };
-
-    const plan = await LaunchPlan.findOneAndUpdate(
-      { launchId: launch._id },
-      planData,
-      { upsert: true, new: true }
-    );
+    const result = await generateAndSavePlan(launch, userContext, false);
 
     res.json({
       success: true,
       message: "Launch plan generated successfully",
-      data: {
-        launch,
-        plan,
-        aiProvider: generatedPlan.aiProvider,
-      },
+      data: result,
     });
   } catch (error) {
     next(error);
@@ -316,93 +233,29 @@ export const generatePlan = async (req, res, next) => {
 // @access  Private
 export const regeneratePlan = async (req, res, next) => {
   try {
-    // Same as generatePlan but increments iteration count
     const launch = await Launch.findById(req.params.id);
 
     if (!launch) {
-      return res.status(404).json({
-        success: false,
-        message: "Launch not found",
-      });
+      throw new NotFoundError("Launch");
     }
 
-    if (launch.userId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to regenerate plan for this launch",
-      });
+    if (!isOwner(launch, req.user)) {
+      throw new AuthorizationError("Not authorized to regenerate plan for this launch");
     }
 
+    // Generate plan using shared service (with regeneration flag)
     const userContext = {
       timezone: req.user.timezone,
       currency: req.user.currency,
       markets: launch.markets,
     };
 
-    const generatedPlan = await generateLaunchPlan(
-      {
-        title: launch.title,
-        description: launch.description,
-        productType: launch.productType,
-        targetDate: launch.targetDate,
-        markets: launch.markets,
-        budget: launch.budget,
-      },
-      userContext
-    );
-
-    launch.plan = {
-      strategy: generatedPlan.strategy,
-      timeline: generatedPlan.timeline,
-      tactics: generatedPlan.tactics,
-    };
-    launch.aiConfig = {
-      provider: generatedPlan.aiProvider,
-      model:
-        generatedPlan.aiProvider === "gemini" ? "gemini-pro" : "gpt-3.5-turbo",
-      temperature: 0.7,
-      iterations: (launch.aiConfig?.iterations || 0) + 1,
-    };
-    await launch.save();
-
-    const planData = {
-      launchId: launch._id,
-      phases: generatedPlan.timeline.map((phase) => ({
-        name: phase.phase,
-        duration: Math.ceil(
-          (new Date(phase.endDate) - new Date(phase.startDate)) /
-            (1000 * 60 * 60 * 24)
-        ),
-        startDate: phase.startDate,
-        endDate: phase.endDate,
-        tasks: phase.tasks.map((task) => ({
-          title: task,
-          priority: "medium",
-          status: "pending",
-        })),
-      })),
-      milestones: generatedPlan.milestones
-        ? generatedPlan.milestones.map((m) => ({
-            title: m,
-            completed: false,
-          }))
-        : [],
-    };
-
-    const plan = await LaunchPlan.findOneAndUpdate(
-      { launchId: launch._id },
-      planData,
-      { new: true }
-    );
+    const result = await generateAndSavePlan(launch, userContext, true);
 
     res.json({
       success: true,
       message: "Launch plan regenerated successfully",
-      data: {
-        launch,
-        plan,
-        aiProvider: generatedPlan.aiProvider,
-      },
+      data: result,
     });
   } catch (error) {
     next(error);

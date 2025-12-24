@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
+import logger from "../utils/logger.js";
 
 let io = null;
 
@@ -37,23 +38,23 @@ export const initializeSocket = (server) => {
 
   // Connection handling
   io.on("connection", (socket) => {
-    console.log(`Socket connected: ${socket.id} (User: ${socket.userId})`);
+    logger.info(`Socket connected: ${socket.id} (User: ${socket.userId})`);
 
     // Join launch room
     socket.on("join:launch", (launchId) => {
       socket.join(`launch-${launchId}`);
-      console.log(`User ${socket.userId} joined launch-${launchId}`);
+      logger.info(`User ${socket.userId} joined launch-${launchId}`);
     });
 
     // Leave launch room
     socket.on("leave:launch", (launchId) => {
       socket.leave(`launch-${launchId}`);
-      console.log(`User ${socket.userId} left launch-${launchId}`);
+      logger.info(`User ${socket.userId} left launch-${launchId}`);
     });
 
     // Disconnect
     socket.on("disconnect", () => {
-      console.log(`Socket disconnected: ${socket.id}`);
+      logger.info(`Socket disconnected: ${socket.id}`);
     });
   });
 

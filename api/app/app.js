@@ -13,7 +13,9 @@ import { globalErrhandler, notFound } from "../middleware/globalErrHandler.js";
 import logger from "../utils/logger.js";
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "../config/swagger.js";
+import requestIdMiddleware from "../middleware/requestId.js";
 // API routes
+import healthRoutes from "../routes/healthRoutes.js";
 import authRoutes from "../routes/authRoutes.js";
 import userRoutes from "../routes/userRoutes.js";
 import launchRoutes from "../routes/launchRoutes.js";
@@ -63,12 +65,18 @@ if (process.env.NODE_ENV === "production") {
   app.use(morgan("dev"));
 }
 
+// Request ID middleware (must be early in the chain)
+app.use(requestIdMiddleware);
+
 // pass incoming data (allow larger payloads for image uploads)
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Favicon route - ignore favicon requests
 app.get("/favicon.ico", (req, res) => res.status(204).end());
+
+// Health check routes (before authentication)
+app.use("/health", healthRoutes);
 
 // Swagger API Documentation
 app.use(

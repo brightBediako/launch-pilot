@@ -1,10 +1,13 @@
 import User from "../models/User.js";
 import Profile from "../models/Profile.js";
+import mongoose from "mongoose";
 import {
   generateToken,
   generateRefreshToken,
   verifyRefreshToken,
 } from "../middleware/auth.js";
+import { sendPasswordResetEmail } from "../services/emailService.js";
+import logger from "../utils/logger.js";
 import crypto from "crypto";
 
 // @desc    Register new user
@@ -23,44 +26,64 @@ export const register = async (req, res, next) => {
       });
     }
 
-    // Create user
-    const user = await User.create({
-      email,
-      password,
-      name,
-      timezone: timezone || "Africa/Lagos",
-      currency: currency || "NGN",
-    });
+    // Use transaction for user and profile creation
+    const session = await mongoose.startSession();
+    let user;
 
-    // Create associated profile
-    await Profile.create({
-      userId: user._id,
-    });
+    try {
+      await session.withTransaction(async () => {
+        // Create user
+        const createdUsers = await User.create(
+          [
+            {
+              email,
+              password,
+              name,
+              timezone: timezone || "Africa/Lagos",
+              currency: currency || "NGN",
+            },
+          ],
+          { session }
+        );
+        user = createdUsers[0];
 
-    // Generate tokens
-    const token = generateToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
+        // Create associated profile
+        await Profile.create(
+          [
+            {
+              userId: user._id,
+            },
+          ],
+          { session }
+        );
+      });
 
-    // Save refresh token to user
-    user.refreshToken = refreshToken;
-    await user.save();
+      // Generate tokens (outside transaction)
+      const token = generateToken(user._id);
+      const refreshToken = generateRefreshToken(user._id);
 
-    res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-      data: {
-        user: {
-          id: user._id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          timezone: user.timezone,
-          currency: user.currency,
+      // Save hashed refresh token to user (outside transaction)
+      await user.setRefreshToken(refreshToken);
+
+      res.status(201).json({
+        success: true,
+        message: "User registered successfully",
+        data: {
+          user: {
+            id: user._id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            timezone: user.timezone,
+            currency: user.currency,
+          },
+          token,
+          refreshToken,
         },
-        token,
-        refreshToken,
-      },
-    });
+      });
+    } finally {
+      await session.endSession();
+    }
   } catch (error) {
     next(error);
   }
@@ -98,9 +121,8 @@ export const login = async (req, res, next) => {
     const token = generateToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    // Save refresh token
-    user.refreshToken = refreshToken;
-    await user.save();
+    // Save hashed refresh token
+    await user.setRefreshToken(refreshToken);
 
     res.json({
       success: true,
@@ -144,20 +166,19 @@ export const refreshToken = async (req, res, next) => {
     // Get user and check if refresh token matches
     const user = await User.findById(decoded.id).select("+refreshToken");
 
-    if (!user || user.refreshToken !== refreshToken) {
+    if (!user || !(await user.compareRefreshToken(refreshToken))) {
       return res.status(401).json({
         success: false,
         message: "Invalid refresh token",
       });
     }
 
-    // Generate new tokens
+    // Generate new tokens (token rotation)
     const newToken = generateToken(user._id);
     const newRefreshToken = generateRefreshToken(user._id);
 
-    // Update refresh token
-    user.refreshToken = newRefreshToken;
-    await user.save();
+    // Update hashed refresh token
+    await user.setRefreshToken(newRefreshToken);
 
     res.json({
       success: true,
@@ -214,14 +235,20 @@ export const forgotPassword = async (req, res, next) => {
     const resetToken = user.createPasswordResetToken();
     await user.save({ validateBeforeSave: false });
 
-    // TODO: Send email with reset token
-    // For now, return token in response (REMOVE IN PRODUCTION)
+    // Send password reset email
+    try {
+      await sendPasswordResetEmail(user.email, resetToken);
+    } catch (emailError) {
+      // Log error but don't reveal if user exists
+      // Still return success to prevent user enumeration
+      logger.error(`Error sending password reset email: ${emailError.message}`);
+    }
+
+    // Security: Never return token in response or reveal if user exists
     res.json({
       success: true,
-      message: "Password reset token generated",
-      data: {
-        resetToken, // REMOVE THIS IN PRODUCTION - should be sent via email
-      },
+      message:
+        "If an account exists with this email, a password reset link has been sent.",
     });
   } catch (error) {
     next(error);
@@ -262,8 +289,8 @@ export const resetPassword = async (req, res, next) => {
     const newToken = generateToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    user.refreshToken = refreshToken;
-    await user.save();
+    // Save hashed refresh token
+    await user.setRefreshToken(refreshToken);
 
     res.json({
       success: true,

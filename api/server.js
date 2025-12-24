@@ -3,7 +3,17 @@ import cron from "node-cron";
 import app from "./app/app.js";
 import { initializeSocket } from "./services/socketService.js";
 import { aggregateDailyMetrics } from "./services/analyticsService.js";
+import { validateEnv } from "./config/validateEnv.js";
 import logger from "./utils/logger.js";
+
+// Validate environment variables at startup
+try {
+  validateEnv();
+  logger.info("Environment variables validated successfully");
+} catch (error) {
+  logger.error(`Environment validation failed: ${error.message}`);
+  process.exit(1);
+}
 
 //creating server
 const PORT = process.env.PORT || 8000;

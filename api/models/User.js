@@ -103,9 +103,25 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
+// Note: refreshToken is now hashed using setRefreshToken method
+// We don't hash it in pre-save to avoid double hashing
+
 // Method to compare passwords
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Method to hash and save refresh token
+userSchema.methods.setRefreshToken = async function (refreshToken) {
+  const salt = await bcrypt.genSalt(12);
+  this.refreshToken = await bcrypt.hash(refreshToken, salt);
+  await this.save();
+};
+
+// Method to compare refresh token
+userSchema.methods.compareRefreshToken = async function (candidateToken) {
+  if (!this.refreshToken) return false;
+  return await bcrypt.compare(candidateToken, this.refreshToken);
 };
 
 // Method to generate password reset token
