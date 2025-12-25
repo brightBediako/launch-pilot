@@ -29,13 +29,13 @@ import analyticsRoutes from "../routes/analyticsRoutes.js";
 dbConnect();
 const app = express();
 
-//cors - Allow all origins in development for easier debugging
+//cors - Simple CORS configuration for development
+const isDevelopment = process.env.NODE_ENV !== "production";
+
 export const corsOptions = {
-  origin:
-    process.env.NODE_ENV === "production"
-      ? process.env.FRONTEND_URL || "http://localhost:3000"
-      : "*", // Allow all origins in development
-  credentials: process.env.NODE_ENV === "production",
+  origin: isDevelopment
+    ? "*"
+    : process.env.FRONTEND_URL || "http://localhost:3000",
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
     "Content-Type",
@@ -44,7 +44,8 @@ export const corsOptions = {
     "Accept",
   ],
   exposedHeaders: ["Authorization"],
-  optionsSuccessStatus: 200, // Some legacy browsers (IE11, various SmartTVs) choke on 204
+  optionsSuccessStatus: 200,
+  credentials: false,
 };
 
 // Security middleware
@@ -52,7 +53,7 @@ app.use(helmet());
 app.use(mongoSanitize());
 app.use(hpp());
 
-// use cors middleware
+// CORS middleware (must be early, before other middleware)
 app.use(cors(corsOptions));
 
 // Performance middleware

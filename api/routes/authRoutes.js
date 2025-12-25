@@ -88,13 +88,31 @@ router.post(
   "/register",
   authLimiter,
   [
-    body("email").custom(validationRules.email.isEmail),
+    body("email")
+      .isEmail()
+      .withMessage("Please provide a valid email address")
+      .normalizeEmail(),
     body("password")
-      .custom(validationRules.password.isLength)
-      .custom(validationRules.password.matches),
-    body("name").custom(validationRules.name.isLength).trim(),
-    body("timezone").optional().custom(validationRules.timezone.isIn),
-    body("currency").optional().custom(validationRules.currency.isIn),
+      .isLength({ min: 8 })
+      .withMessage("Password must be at least 8 characters long")
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+      .withMessage(
+        "Password must contain at least one uppercase letter, one lowercase letter, and one number"
+      ),
+    body("name")
+      .trim()
+      .isLength({ min: 2, max: 50 })
+      .withMessage("Name must be between 2 and 50 characters"),
+    body("timezone")
+      .optional()
+      .isIn(["Africa/Lagos", "Africa/Accra", "UTC"])
+      .withMessage(
+        "Invalid timezone. Must be Africa/Lagos, Africa/Accra, or UTC"
+      ),
+    body("currency")
+      .optional()
+      .isIn(["NGN", "GHS", "USD"])
+      .withMessage("Invalid currency. Must be NGN, GHS, or USD"),
   ],
   validateRequest,
   register
