@@ -15,10 +15,16 @@ export default function Navbar() {
         <nav className="bg-white shadow-lg">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16">
-                    {/* Logo */}
-                    <div className="flex items-center">
+                    {/* Logo and Public Links */}
+                    <div className="flex items-center space-x-8">
                         <Link to="/" className="flex items-center">
                             <div className="text-2xl font-bold text-primary-600">🚀 LaunchPilot</div>
+                        </Link>
+                        <Link to="/about" className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md font-medium">
+                            About
+                        </Link>
+                        <Link to="/faq" className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md font-medium">
+                            FAQ
                         </Link>
                     </div>
 

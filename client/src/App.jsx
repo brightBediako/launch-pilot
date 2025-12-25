@@ -1,7 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import useAuthStore from './store/authStore';
+import TopBanner from './components/TopBanner';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -15,6 +17,19 @@ import LaunchDetailPage from './pages/LaunchDetailPage';
 import LaunchNewPage from './pages/LaunchNewPage';
 import PartnersPage from './pages/PartnersPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import AboutPage from './pages/AboutPage';
+import FAQPage from './pages/FAQPage';
+
+// Create QueryClient instance
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            staleTime: 1000 * 60 * 5,
+            gcTime: 1000 * 60 * 10,
+            retry: 1,
+        },
+    },
+});
 
 function App() {
     const { isAuthenticated, fetchCurrentUser } = useAuthStore();
@@ -31,11 +46,15 @@ function App() {
     }, []);
 
     return (
-        <Router>
-            <Navbar />
-            <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<HomePage />} />
+        <QueryClientProvider client={queryClient}>
+            <Router>
+                <TopBanner />
+                <Navbar />
+                <Routes>
+                    {/* Public Routes */}
+                    <Route path="/" element={<HomePage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/faq" element={<FAQPage />} />
                 <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
                 <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" /> : <RegisterPage />} />
 
