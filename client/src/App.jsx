@@ -53,65 +53,65 @@ function App() {
                 <Routes>
                     {/* Public Routes */}
                     <Route path="/" element={<HomePage />} />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="/faq" element={<FAQPage />} />
-                <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
-                <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" /> : <RegisterPage />} />
+                    <Route path="/about" element={<AboutPage />} />
+                    <Route path="/faq" element={<FAQPage />} />
+                    <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
+                    <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" /> : <RegisterPage />} />
 
-                {/* Protected Routes */}
-                <Route
-                    path="/dashboard"
-                    element={
-                        <ProtectedRoute>
-                            <DashboardPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/launches"
-                    element={
-                        <ProtectedRoute>
-                            <LaunchesPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/launches/new"
-                    element={
-                        <ProtectedRoute>
-                            <LaunchNewPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/launches/:id"
-                    element={
-                        <ProtectedRoute>
-                            <LaunchDetailPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/partners"
-                    element={
-                        <ProtectedRoute>
-                            <PartnersPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/analytics"
-                    element={
-                        <ProtectedRoute>
-                            <AnalyticsPage />
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* Catch all */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-        </Router>
+                    {/* Protected Routes */}
+                    <Route
+                        path="/dashboard"
+                        element={
+                            <ProtectedRoute>
+                                <DashboardPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/launches"
+                        element={
+                            <ProtectedRoute>
+                                <LaunchesPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/launches/new"
+                        element={
+                            <ProtectedRoute>
+                                <LaunchNewPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/launches/:id"
+                        element={
+                            <ProtectedRoute>
+                                <LaunchDetailPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/partners"
+                        element={
+                            <ProtectedRoute>
+                                <PartnersPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/analytics"
+                        element={
+                            <ProtectedRoute>
+                                <AnalyticsPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    {/* Catch all */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            </Router>
+        </QueryClientProvider>
     );
 }
 

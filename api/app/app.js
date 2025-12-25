@@ -34,8 +34,8 @@ export const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
       ? process.env.FRONTEND_URL || "http://localhost:3000"
-      : true, // Allow all origins in development
-  credentials: true,
+      : "*", // Allow all origins in development
+  credentials: process.env.NODE_ENV === "production",
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
     "Content-Type",

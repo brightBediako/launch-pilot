@@ -1,13 +1,15 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import useLaunchStore from '../store/launchStore';
 import useAuthStore from '../store/authStore';
+import { useLaunches } from '../hooks/useQueries';
 
 export default function DashboardPage() {
-    const { isAuthenticated } = useAuthStore();
     const { user } = useAuthStore();
 
-    // Mock launches data
+    // Fetch launches from API using TanStack Query
+    const { data: launches = [], isLoading, error } = useLaunches();
+
+    // Mock launches data (fallback)
     const mockLaunches = [
         {
             _id: '1',
@@ -56,11 +58,13 @@ export default function DashboardPage() {
         },
     ];
 
+    const displayLaunches = launches.length > 0 ? launches : mockLaunches;
+
     const stats = [
-        { label: 'Total Launches', value: mockLaunches.length, color: 'bg-blue-100 text-blue-800' },
-        { label: 'Active', value: mockLaunches.filter((l) => l.status === 'active').length, color: 'bg-green-100 text-green-800' },
-        { label: 'Planning', value: mockLaunches.filter((l) => l.status === 'planning').length, color: 'bg-yellow-100 text-yellow-800' },
-        { label: 'Completed', value: mockLaunches.filter((l) => l.status === 'completed').length, color: 'bg-purple-100 text-purple-800' },
+        { label: 'Total Launches', value: displayLaunches.length, color: 'bg-blue-100 text-blue-800' },
+        { label: 'Active', value: displayLaunches.filter((l) => l.status === 'active').length, color: 'bg-green-100 text-green-800' },
+        { label: 'Planning', value: displayLaunches.filter((l) => l.status === 'planning').length, color: 'bg-yellow-100 text-yellow-800' },
+        { label: 'Completed', value: displayLaunches.filter((l) => l.status === 'completed').length, color: 'bg-purple-100 text-purple-800' },
     ];
 
     return (
@@ -74,8 +78,8 @@ export default function DashboardPage() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    {stats.map((stat, idx) => (
-                        <div key={idx} className="card">
+                    {stats.map((stat) => (
+                        <div key={stat.label} className="card">
                             <div className={`inline-block ${stat.color} rounded-lg p-3 mb-4`}>
                                 <span className="text-2xl font-bold">{stat.value}</span>
                             </div>
@@ -106,6 +110,20 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
+                {/* Loading State */}
+                {isLoading && (
+                    <div className="text-center py-8">
+                        <p className="text-gray-600">Loading launches...</p>
+                    </div>
+                )}
+
+                {/* Error State */}
+                {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
+                        <p className="text-red-700">Failed to load launches. Using local data.</p>
+                    </div>
+                )}
+
                 {/* Recent Launches */}
                 <div>
                     <div className="flex justify-between items-center mb-4">
@@ -115,9 +133,9 @@ export default function DashboardPage() {
                         </Link>
                     </div>
 
-                    {mockLaunches.length > 0 ? (
+                    {displayLaunches.length > 0 ? (
                         <div className="space-y-4">
-                            {mockLaunches.slice(0, 5).map((launch) => (
+                            {displayLaunches.slice(0, 5).map((launch) => (
                                 <Link key={launch._id} to={`/launches/${launch._id}`}>
                                     <div className="card hover:shadow-lg transition-shadow">
                                         <div className="flex justify-between items-start mb-3">
@@ -140,7 +158,7 @@ export default function DashboardPage() {
                                         </div>
                                         <div className="flex justify-between text-xs text-gray-600">
                                             <span>{launch.progress}% complete</span>
-                                            <span>Target: {launch.targetDate.toLocaleDateString()}</span>
+                                            <span>Target: {launch.targetDate ? new Date(launch.targetDate).toLocaleDateString() : 'N/A'}</span>
                                         </div>
                                     </div>
                                 </Link>

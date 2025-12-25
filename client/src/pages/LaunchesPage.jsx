@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useLaunches } from '../hooks/useQueries';
 
 export default function LaunchesPage() {
     const [statusFilter, setStatusFilter] = useState('');
 
-    // Mock comprehensive launches data
+    // Fetch launches from API using TanStack Query
+    const { data: launches = [], isLoading, error } = useLaunches({ status: statusFilter || undefined });
+
+    // Mock comprehensive launches data (fallback)
     const mockLaunches = [
         {
             _id: '1',
@@ -118,10 +122,8 @@ export default function LaunchesPage() {
         },
     ];
 
+    const displayLaunches = launches.length > 0 ? launches : mockLaunches;
     const statuses = ['draft', 'planning', 'active', 'completed', 'cancelled'];
-    const filteredLaunches = statusFilter
-        ? mockLaunches.filter((l) => l.status === statusFilter)
-        : mockLaunches;
 
     return (
         <div className="min-h-screen bg-gray-50 py-8">
@@ -130,12 +132,26 @@ export default function LaunchesPage() {
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900">My Launches</h1>
-                        <p className="text-gray-600 mt-2">Manage all your product launches ({mockLaunches.length} total)</p>
+                        <p className="text-gray-600 mt-2">Manage all your product launches ({displayLaunches.length} total)</p>
                     </div>
                     <Link to="/launches/new" className="btn-primary">
                         + New Launch
                     </Link>
                 </div>
+
+                {/* Loading State */}
+                {isLoading && (
+                    <div className="text-center py-8">
+                        <p className="text-gray-600">Loading launches...</p>
+                    </div>
+                )}
+
+                {/* Error State */}
+                {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
+                        <p className="text-red-700">Failed to load launches. Using local data.</p>
+                    </div>
+                )}
 
                 {/* Filters */}
                 <div className="mb-6 flex space-x-2 overflow-x-auto pb-2">
@@ -146,10 +162,10 @@ export default function LaunchesPage() {
                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                             }`}
                     >
-                        All ({mockLaunches.length})
+                        All ({displayLaunches.length})
                     </button>
                     {statuses.map((status) => {
-                        const count = mockLaunches.filter(l => l.status === status).length;
+                        const count = displayLaunches.filter(l => l.status === status).length;
                         return (
                             <button
                                 key={status}
@@ -166,62 +182,66 @@ export default function LaunchesPage() {
                 </div>
 
                 {/* Launches Grid */}
-                {filteredLaunches.length > 0 ? (
+                {displayLaunches.length > 0 ? (
                     <div className="grid gap-6">
-                        {filteredLaunches.map((launch) => (
-                            <Link key={launch._id} to={`/launches/${launch._id}`}>
-                                <div className="card hover:shadow-lg transition-shadow">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="flex-1">
-                                            <h3 className="text-xl font-bold text-gray-900">{launch.title}</h3>
-                                            <p className="text-gray-600 mt-2 text-sm">{launch.description}</p>
-                                        </div>
-                                        <span className={`badge whitespace-nowrap ml-4 ${launch.status === 'active' ? 'bg-green-100 text-green-800' :
-                                            launch.status === 'planning' ? 'bg-yellow-100 text-yellow-800' :
-                                                launch.status === 'completed' ? 'bg-purple-100 text-purple-800' :
-                                                    launch.status === 'draft' ? 'bg-gray-100 text-gray-800' :
-                                                        'bg-red-100 text-red-800'
-                                            }`}>
-                                            {launch.status}
-                                        </span>
-                                    </div>
+                        {displayLaunches.map((launch) => {
+                            let badgeClass = 'bg-gray-100 text-gray-800';
+                            if (launch.status === 'active') badgeClass = 'bg-green-100 text-green-800';
+                            else if (launch.status === 'planning') badgeClass = 'bg-yellow-100 text-yellow-800';
+                            else if (launch.status === 'completed') badgeClass = 'bg-purple-100 text-purple-800';
+                            else if (launch.status === 'draft') badgeClass = 'bg-gray-100 text-gray-800';
+                            else badgeClass = 'bg-red-100 text-red-800';
 
-                                    {/* Progress Bar */}
-                                    <div className="mb-4">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-sm font-medium text-gray-700">Progress</span>
-                                            <span className="text-sm font-bold text-primary-600">{launch.progress}%</span>
+                            return (
+                                <Link key={launch._id} to={`/launches/${launch._id}`}>
+                                    <div className="card hover:shadow-lg transition-shadow">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="flex-1">
+                                                <h3 className="text-xl font-bold text-gray-900">{launch.title}</h3>
+                                                <p className="text-gray-600 mt-2 text-sm">{launch.description}</p>
+                                            </div>
+                                            <span className={`badge whitespace-nowrap ml-4 ${badgeClass}`}>
+                                                {launch.status}
+                                            </span>
                                         </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                            <div
-                                                className="bg-primary-600 h-2 rounded-full transition-all"
-                                                style={{ width: `${launch.progress}%` }}
-                                            ></div>
-                                        </div>
-                                    </div>
 
-                                    {/* Meta Info */}
-                                    <div className="grid grid-cols-4 gap-4 text-sm">
-                                        <div>
-                                            <p className="text-gray-500">Target Date</p>
-                                            <p className="font-semibold text-gray-900">{launch.targetDate.toLocaleDateString()}</p>
+                                        {/* Progress Bar */}
+                                        <div className="mb-4">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-sm font-medium text-gray-700">Progress</span>
+                                                <span className="text-sm font-bold text-primary-600">{launch.progress}%</span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div
+                                                    className="bg-primary-600 h-2 rounded-full transition-all"
+                                                    style={{ width: `${launch.progress}%` }}
+                                                ></div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-gray-500">Type</p>
-                                            <p className="font-semibold text-gray-900 capitalize">{launch.productType}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-gray-500">Budget</p>
-                                            <p className="font-semibold text-gray-900">{launch.budget}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-gray-500">Team Size</p>
-                                            <p className="font-semibold text-gray-900">{launch.team} members</p>
+
+                                        {/* Meta Info */}
+                                        <div className="grid grid-cols-4 gap-4 text-sm">
+                                            <div>
+                                                <p className="text-gray-500">Target Date</p>
+                                                <p className="font-semibold text-gray-900">{launch.targetDate.toLocaleDateString()}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500">Type</p>
+                                                <p className="font-semibold text-gray-900 capitalize">{launch.productType}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500">Budget</p>
+                                                <p className="font-semibold text-gray-900">{launch.budget}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500">Team Size</p>
+                                                <p className="font-semibold text-gray-900">{launch.team} members</p>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </Link>
-                        ))}
+                                </Link>
+                            );
+                        })}
                     </div>
                 ) : (
                     <div className="card text-center py-12">

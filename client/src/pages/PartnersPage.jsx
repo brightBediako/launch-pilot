@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
+import { usePartners } from '../hooks/useQueries';
 
 export default function PartnersPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedService, setSelectedService] = useState('');
 
-    // Comprehensive partner data
+    // Fetch partners from API using TanStack Query
+    const { data: partners = [], isLoading, error } = usePartners({ service: selectedService || undefined });
+
+    // Comprehensive partner data (fallback)
     const partnerData = [
         {
             id: 1,
@@ -128,13 +132,16 @@ export default function PartnersPage() {
         },
     ];
 
+    const displayPartners = partners.length > 0 ? partners : partnerData;
     const services = ['Marketing', 'Design', 'Development', 'Content', 'PR', 'Analytics', 'Video', 'E-commerce'];
 
     // Filter partners
-    const filteredPartners = partnerData.filter((partner) => {
-        const matchesSearch = partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            partner.description.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesService = !selectedService || partner.services.includes(selectedService);
+    const filteredPartners = displayPartners.filter((partner) => {
+        const partnerName = partner.name || '';
+        const partnerDesc = partner.description || '';
+        const matchesSearch = partnerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            partnerDesc.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesService = !selectedService || (partner.services && partner.services.includes(selectedService));
         return matchesSearch && matchesService;
     });
 
@@ -146,6 +153,20 @@ export default function PartnersPage() {
                     <h1 className="text-3xl font-bold text-gray-900">Find Partners</h1>
                     <p className="text-gray-600 mt-2">Connect with verified experts to execute your launch</p>
                 </div>
+
+                {/* Loading State */}
+                {isLoading && (
+                    <div className="text-center py-8">
+                        <p className="text-gray-600">Loading partners...</p>
+                    </div>
+                )}
+
+                {/* Error State */}
+                {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
+                        <p className="text-red-700">Failed to load partners. Using local data.</p>
+                    </div>
+                )}
 
                 {/* Search and Filters */}
                 <div className="mb-8 bg-white p-6 rounded-lg shadow-sm">
@@ -159,25 +180,24 @@ export default function PartnersPage() {
                     <div className="flex space-x-3 overflow-x-auto pb-2">
                         <button
                             onClick={() => setSelectedService('')}
-                            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${!selectedService
-                                ? 'bg-primary-500 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${!selectedService ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                         >
                             All Services
                         </button>
-                        {services.map((service) => (
-                            <button
-                                key={service}
-                                onClick={() => setSelectedService(selectedService === service ? '' : service)}
-                                className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${selectedService === service
-                                    ? 'bg-primary-500 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                            >
-                                {service}
-                            </button>
-                        ))}
+                        {services.map((service) => {
+                            const isSelected = selectedService === service;
+                            const buttonClass = isSelected ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200';
+                            return (
+                                <button
+                                    key={service}
+                                    onClick={() => setSelectedService(isSelected ? '' : service)}
+                                    className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${buttonClass}`}
+                                >
+                                    {service}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
