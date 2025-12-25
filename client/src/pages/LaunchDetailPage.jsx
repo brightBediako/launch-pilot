@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 
 export default function LaunchDetailPage() {
@@ -235,8 +235,8 @@ export default function LaunchDetailPage() {
                                         <div className="flex justify-between items-start mb-1">
                                             <p className="font-semibold text-gray-900 text-sm">{draft.title}</p>
                                             <span className={`badge text-xs ${draft.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                                    draft.status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' :
-                                                        'bg-gray-100 text-gray-800'
+                                                draft.status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                    'bg-gray-100 text-gray-800'
                                                 }`}>
                                                 {draft.status}
                                             </span>

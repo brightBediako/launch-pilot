@@ -1,3 +1,5 @@
+import React from 'react';
+
 export default function AnalyticsPage() {
     // Key metrics data
     const metrics = [
